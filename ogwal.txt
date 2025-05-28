@@ -1,2 +1,0 @@
-Hello guys, this data science course is fun
-This is appending to the file.
