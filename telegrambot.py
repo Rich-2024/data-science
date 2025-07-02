@@ -1,58 +1,104 @@
+# import asyncio
+# from telegram import Bot
+# from telegram.error import TelegramError
+
+# BOT_TOKEN = '7474758626:AAFZ3BrJnP0aZ28f7usiMilsOGGPj-6RWo8'
+# GROUP_CHAT_ID = '-1002746229552'
+
+# bot = Bot(token=BOT_TOKEN)
+
+# async def get_top_crypto_signals():
+#     import aiohttp
+#     url = "https://api.coingecko.com/api/v3/coins/markets"
+#     params = {
+#         'vs_currency': 'usd',
+#         'order': 'market_cap_desc',
+#         'per_page': 5,
+#         'page': 1,
+#         'price_change_percentage': '24h'
+#     }
+#     async with aiohttp.ClientSession() as session:
+#         async with session.get(url, params=params) as resp:
+#             data = await resp.json()
+#     signals = []
+#     for coin in data:
+#         name = coin['name']
+#         price = coin['current_price']
+#         change_24h = coin['price_change_percentage_24h']
+#         signal = f"{name} - Price: ${price:.2f}, 24h Change: {change_24h:.2f}%"
+#         signals.append(signal)
+#     return signals
+
+# async def post_signals():
+#     while True:
+#         signals = await get_top_crypto_signals()
+#         message = "🔥 Top Crypto Signals:\n" + "\n".join(signals)
+#         try:
+#             await bot.send_message(chat_id=GROUP_CHAT_ID, text=message)
+#             print("✅ Message posted successfully.")
+#         except TelegramError as e:
+#             print(f"❌ Failed to post message: {e}")
+#         await asyncio.sleep(60)  # wait 60 seconds before posting again
+
+# if __name__ == "__main__":
+#     asyncio.run(post_signals())
 import asyncio
-import datetime
-import openai
 from telegram import Bot
+from telegram.error import TelegramError
+import aiohttp
 
-# Config
-TELEGRAM_BOT_TOKEN = '7474758626:AAFZ3BrJnP0aZ28f7usiMilsOGGPj-6RWo8'
-CHAT_ID = '@RichieForexComunity'
-OPENAI_API_KEY = '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'
-openai.api_key = OPENAI_API_KEY
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
+BOT_TOKEN = '7474758626:AAFZ3BrJnP0aZ28f7usiMilsOGGPj-6RWo8'
+GROUP_CHAT_ID = '-1002746229552'
 
-async def test_telegram_send():
-    try:
-        await bot.send_message(chat_id=CHAT_ID, text="Test message from bot")
-        print("Test message sent successfully")
-    except Exception as e:
-        print("Failed to send test message:", e)
+bot = Bot(token=BOT_TOKEN)
 
-def generate_content():
-    print("[INFO] Generating AI content...")
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "Share a short Forex trading tip or motivation."}]
+async def get_top_crypto_signals():
+    url = "https://api.coingecko.com/api/v3/coins/markets"
+    params = {
+        "vs_currency": "usd",
+        "order": "market_cap_desc",
+        "per_page": 5,
+        "page": 1,
+        "price_change_percentage": "24h",
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+
+    signals = []
+    for coin in data:
+        name = coin["name"]
+        price = coin["current_price"]
+        change = coin.get("price_change_percentage_24h")
+
+        if change is None:
+            signal = "HOLD"
+        elif change > 2:
+            signal = "BUY"
+        elif change < -2:
+            signal = "SELL"
+        else:
+            signal = "HOLD"
+
+        signals.append(
+            f"{name} — 💵 ${price:.2f}, 📉 24h: {change:.2f}%, 📢 Signal: {signal}"
         )
-        content = response.choices[0].message.content.strip()
-        print(f"[INFO] AI content generated: {content}")
-        return content
-    except Exception as e:
-        print("[ERROR] AI generation failed:", e)
-        fallback = "Tip: Plan your trade and trade your plan."
-        print("[INFO] Using fallback tip:", fallback)
-        return fallback
 
-async def post_to_telegram():
-    content = generate_content()  # synchronous call
-    try:
-        await bot.send_message(chat_id=CHAT_ID, text=content)
-        print(f"[{datetime.datetime.now()}] Posted to Telegram: {content}")
-    except Exception as e:
-        print("[ERROR] Telegram posting failed:", e)
+    return signals
 
-async def main():
-    await test_telegram_send()  # Test on start
-
-    print(f"Bot is running... Posting every 1 minute to {CHAT_ID}")
-    print("Press Ctrl+C to stop.")
-
-    try:
-        while True:
-            await post_to_telegram()
-            await asyncio.sleep(60)
-    except KeyboardInterrupt:
-        print("Bot stopped by user.")
+async def post_signals():
+    while True:
+        try:
+            signals = await get_top_crypto_signals()
+            message = "📊 *Top Crypto Signals*\n\n" + "\n".join(signals)
+            await bot.send_message(chat_id=GROUP_CHAT_ID, text=message, parse_mode="Markdown")
+            print("✅ Message posted successfully.")
+        except TelegramError as e:
+            print(f"❌ Failed to post message: {e}")
+        except Exception as e:
+            print(f"⚠️ Error: {e}")
+        await asyncio.sleep(60)  # post every 60 seconds
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(post_signals())
